@@ -1,96 +1,134 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QLineEdit, QPushButton
-from PyQt5.QtGui import QFont
+import os
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QLineEdit, QTextEdit, QFileDialog, QPushButton, QMessageBox
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
-from base64 import b64encode, b64decode
-from PyQt5.QtWidgets import QVBoxLayout
-from PyQt5.QtWidgets import QMessageBox
+from PyQt5 import QtWidgets, QtGui, QtCore
 
-
-class MainWindow(QWidget):
-
+class RSAApp(QWidget):
     def __init__(self):
         super().__init__()
 
-        self.label = QLabel("Enter text to encrypt:")
-        self.text_box = QLineEdit()
-        self.generate_button = QPushButton("Generate Key Pair")
-        self.encrypt_button = QPushButton("Encrypt")
-        self.decrypt_button = QPushButton("Decrypt")
+        # Set up the main window
+        self.setGeometry(100, 100, 500, 500)
+        self.setWindowTitle("RSA Encryption App")
 
-        self.label.setFont(QFont("Arial", 12))
-        self.text_box.setPlaceholderText("Enter text to encrypt")
-        self.generate_button.clicked.connect(self.generate_key_pair)
-        self.encrypt_button.clicked.connect(self.encrypt)
-        self.decrypt_button.clicked.connect(self.decrypt)
+         # Create the widgets
+        self.label = QLabel("Enter text or choose a file to encrypt:", self)
+        self.label.move(20, 20)
+        self.input = QTextEdit(self)
+        self.input.setAcceptRichText(False)
+        self.input.setGeometry(20, 50, 460, 200)
+        self.file_button = QPushButton("Choose a File", self)
+        self.file_button.setGeometry(290, 15, 100, 30)
+        self.encrypt_button = QPushButton("Encrypt", self)
+        self.encrypt_button.setGeometry(140, 270, 100, 30)
+        self.decrypt_button = QPushButton("Decrypt", self)
+        self.decrypt_button.setGeometry(260, 270, 100, 30)
+        self.generate_key_btn = QPushButton("Generate Key", self)
+        self.generate_key_btn.setGeometry(20, 270, 100, 30)
+        self.cancel_button = QPushButton("Cancel", self)
+        self.cancel_button.setGeometry(380, 270, 100, 30)
 
-        self.layout = QVBoxLayout()
-        self.layout.addWidget(self.label)
-        self.layout.addWidget(self.text_box)
-        self.layout.addWidget(self.generate_button)
-        self.layout.addWidget(self.encrypt_button)
-        self.layout.addWidget(self.decrypt_button)
+        # Connect the buttons to their functions
+        self.file_button.clicked.connect(self.choose_file)
+        self.encrypt_button.clicked.connect(self.encrypt_text)
+        self.decrypt_button.clicked.connect(self.decrypt_text)
+        self.generate_key_btn.clicked.connect(self.generate_key_pair)
+        self.cancel_button.clicked.connect(self.cancel)
 
-        self.setLayout(self.layout)
+        # Show the window
+        self.show()
+
+    def choose_file(self):
+        # Allow the user to choose a file to encrypt
+        options = QFileDialog.Options()
+        options |= QFileDialog.DontUseNativeDialog
+        file_path, _ = QFileDialog.getOpenFileName(self, "Choose a file", "", "All Files (*);;Text Files (*.txt)", options=options)
+        if file_path:
+            with open(file_path, "r") as f:
+                self.input.setPlainText(f.read())
 
     def generate_key_pair(self):
-        # Generate an RSA key pair.
+        # Generate an RSA key pair
         key = RSA.generate(2048)
 
-        # Get the public key.
-        public_key = key.publickey()
-
-        # Save the public key to a file.
+        # Save the public and private keys to files
         with open("public_key.pem", "wb") as f:
-            f.write(public_key.export_key("PEM"))
+            f.write(key.publickey().export_key())
+        with open("private_key.pem", "wb") as f:
+            f.write(key.export_key())
+    
+        # Show a message box with the file paths
+        msg = QMessageBox()
+        msg.setWindowTitle("Key Pair Generated")
+        msg.setText(f"The RSA key pair has been generated and saved to public_key.pem and private_key.pem.")
+        msg.setIcon(QMessageBox.Information)
+        msg.exec_()
+        return key
+    
+    def encrypt_text(self):
+        # Get the text to encrypt
+        text = self.input.toPlainText().strip()
+        
+        # Open a file dialog box to select the decryption key
+        keypath, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Select a public key file")
 
-        # Display a message to the user.
-        QMessageBox.information(self, "Success", "Key pair generated successfully.")
+        # Load the encryption key
+        with open(keypath, 'rb') as key_file:
+            key = RSA.import_key(key_file.read())
+            
+        # Encrypt the text using PKCS1_OAEP
+        cipher = PKCS1_OAEP.new(key.publickey())
+        encrypted = cipher.encrypt(text.encode())
 
-    def encrypt(self):
-        # Get the text to encrypt from the text box.
-        text = self.text_box.text()
+        # Save the encrypted text to files
+        with open("encrypted.txt", "wb") as f:
+            f.write(encrypted)
 
-        # Get the public key from a file.
-        with open("public_key.pem", "rb") as f:
-            public_key = RSA.import_key(f.read())
-
-        # Encrypt the text using the public key.
-        encrypted_text = PKCS1_OAEP.new(public_key).encrypt(text.encode("utf-8"))
-
-        # Decode the encrypted text to a string.
-        encrypted_text = b64encode(encrypted_text).decode("utf-8")
-
-        # Display the encrypted text in the label.
-        self.label.setText("Encrypted text: " + encrypted_text)
-
-        # Save the encrypted text to a file.
-        with open("encrypted_text.txt", "w") as f:
-            f.write(encrypted_text)
-
-    def decrypt(self):
-        # Get the encrypted text from the text box.
-        encrypted_text = self.text_box.text()
-
-        # Get the private key from a file.
-        with open("private_key.pem", "rb") as f:
-            private_key = RSA.import_key(f.read())
-
-        # Decrypt the text using the private key.
-        decrypted_text = PKCS1_OAEP.new(private_key).decrypt(encrypted_text.encode("utf-8"))
-
-        # Decode the decrypted text to a string.
-        decrypted_text = b64decode(decrypted_text).decode("utf-8")
-
-        # Display the decrypted text in the label.
-        self.label.setText("Decrypted text: " + decrypted_text)
+        # Show a message box with the file paths
+        msg = QMessageBox()
+        msg.setWindowTitle("Encryption Successful")
+        msg.setText(f"The text has been encrypted and saved to encrypted.txt.")
+        msg.setIcon(QMessageBox.Information)
+        msg.exec_()
 
 
-if __name__ == "__main__":
+    def decrypt_text(self):
+        # Get the filename to decrypt
+        filename, _ = QFileDialog.getOpenFileName(self, "Choose a file to decrypt", ".", "Text files (*.txt)")
+
+        # Open a file dialog box to select the decryption key
+        keypath, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Select a private key file")
+
+        # Load the encryption key
+        with open(keypath, 'rb') as key_file:
+            private_key = RSA.import_key(key_file.read())
+
+        # Load the encrypted text
+        with open(filename, "rb") as f:
+            encrypted = f.read()
+
+        # Decrypt the text using PKCS1_OAEP
+        cipher = PKCS1_OAEP.new(private_key)
+        decrypted = cipher.decrypt(encrypted)
+
+        # Set the decrypted text in the input text box
+        self.input.setPlainText(decrypted.decode('utf-8'))
+
+        # Show a message box
+        msg = QMessageBox()
+        msg.setWindowTitle("Decryption Successful")
+        msg.setText(f"The file {filename} has been decrypted and loaded into the input text box.")
+        msg.setIcon(QMessageBox.Information)
+        msg.exec_()
+        
+    def cancel(self):
+        # Close the window
+        self.close()
+
+if __name__ == '__main__':
     app = QApplication(sys.argv)
-
-    main_window = MainWindow()
-    main_window.show()
-
+    rsa_app = RSAApp()
     sys.exit(app.exec_())
