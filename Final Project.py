@@ -1,4 +1,5 @@
 import sys
+import subprocess
 from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QDesktopWidget
 
 class App(QWidget):
@@ -6,8 +7,8 @@ class App(QWidget):
     def __init__(self):
         super().__init__()
         self.title = 'Encryption and Hashing'
-        self.width = 320
-        self.height = 200
+        self.width = 500
+        self.height = 300
         self.initUI()
 
     def initUI(self):
@@ -21,15 +22,15 @@ class App(QWidget):
         layout = QVBoxLayout()
 
         # Create buttons
-        btn_symmetric = QPushButton('Symmetric Encryption', self)
+        btn_symmetric = QPushButton('Symmetric Encryption(Fernet-AES based)', self)
         btn_symmetric.clicked.connect(lambda: subprocess.call(['python', 'Symmetric.py']))
         layout.addWidget(btn_symmetric)
 
-        btn_asymmetric = QPushButton('Asymmetric Encryption', self)
+        btn_asymmetric = QPushButton('Asymmetric Encryption(RSA)', self)
         btn_asymmetric.clicked.connect(lambda: subprocess.call(['python', 'Asymmetric.py']))
         layout.addWidget(btn_asymmetric)
 
-        btn_hashing = QPushButton('Hashing', self)
+        btn_hashing = QPushButton('Hashing(SHA-256)', self)
         btn_hashing.clicked.connect(lambda: subprocess.call(['python', 'Hashing.py']))
         layout.addWidget(btn_hashing)
 
